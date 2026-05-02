@@ -82,7 +82,7 @@ tr:hover td { background:#f7fafc; }
 <body>
 <header>
   <h1>🏥 Dashboard คลินิก</h1>
-  <span>อัพเดท: 03/05/2026 00:13</span>
+  <span>อัพเดท: 03/05/2026 00:17</span>
 </header>
 
 <div class="tabs">
@@ -475,7 +475,7 @@ tr:hover td { background:#f7fafc; }
         </tr></tbody>
     </table>
   </div>
-  <div class="footer">ตรวจสอบล่าสุด: 03/05/2026 00:13 · อัพเดทอัตโนมัติทุกศุกร์ 20:00 น.</div>
+  <div class="footer">ตรวจสอบล่าสุด: 03/05/2026 00:16 · อัพเดทอัตโนมัติทุกศุกร์ 20:00 น.</div>
 </div>
 </div>
 
@@ -518,6 +518,10 @@ tr:hover td { background:#f7fafc; }
       <button onclick="document.getElementById('billFileInput').click()"
         style="padding:11px 22px;background:#2b6cb0;color:white;border:none;border-radius:10px;font-size:.95rem;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:8px">
         📷 ถ่าย/เลือกรูปบิล — อ่านอัตโนมัติ
+      </button>
+      <button onclick="changeOrKey()"
+        style="margin-left:8px;padding:11px 14px;background:#edf2f7;color:#4a5568;border:none;border-radius:10px;font-size:.88rem;font-family:inherit;cursor:pointer">
+        🔑 เปลี่ยน Key
       </button>
       <div id="billStatus" style="display:none;margin-top:12px;padding:12px 16px;border-radius:10px;font-size:.88rem"></div>
     </div>
@@ -881,17 +885,18 @@ document.getElementById('nurseList').innerHTML = nurseHTML || '<p style="color:#
 
   // ===== อ่านบิลด้วย OpenRouter Vision =====
   // API key เก็บใน localStorage (ไม่ฝังใน HTML เพื่อความปลอดภัย)
-  function getOrKey() {
-    let k = localStorage.getItem('or_api_key') || '';
+  function getOrKey(forceAsk) {
+    let k = !forceAsk && localStorage.getItem('or_api_key') || '';
     if (!k) {
       k = (prompt('กรุณาใส่ OpenRouter API Key:\n(กรอกครั้งเดียว ระบบจะจำให้)') || '').trim();
       if (k) localStorage.setItem('or_api_key', k);
     }
     return k;
   }
-  window.clearOrKey = function() {
+  window.changeOrKey = function() {
     localStorage.removeItem('or_api_key');
-    alert('ล้าง API Key แล้ว ครั้งหน้าจะถามใหม่');
+    const k = getOrKey(true);
+    if (k) alert('✅ บันทึก API Key ใหม่แล้ว');
   };
   window.readBillImage = async function(input) {
     const file = input.files[0];
@@ -995,6 +1000,11 @@ document.getElementById('nurseList').innerHTML = nurseHTML || '<p style="color:#
               temperature: 0
             })
           });
+          if (resp.status === 401) {
+            // Key ไม่ถูกต้อง — ล้างแล้วถามใหม่
+            localStorage.removeItem('or_api_key');
+            throw new Error('API Key ไม่ถูกต้องหรือหมดอายุ — กรุณากรอก Key ใหม่แล้วลองอีกครั้ง');
+          }
           if (resp.status === 404 || resp.status === 400) {
             const j = await resp.json().catch(()=>({}));
             lastErr = `${model}: ${resp.status}`;
