@@ -50,22 +50,27 @@ tr:hover td { background:#f7fafc; }
   .card .value { font-size:1.2rem; }
   .bottom { grid-template-columns:1fr !important; }
   .med-mini { grid-template-columns:1fr 1fr; }
-  table { font-size:.78rem; }
-  th, td { padding:7px 8px; }
-  .box { padding:16px; }
+  .box { padding:14px; }
   .box h2 { font-size:.88rem; }
-  /* กล่องหักค่าแรง */
-  .box [style*="repeat(5,1fr)"],
-  .box [style*="repeat(4,1fr)"] { grid-template-columns:repeat(2,1fr) !important; }
+  /* ทุก grid ที่มี 3-5 คอลัมน์ → เปลี่ยนเป็น 2 คอลัมน์ */
+  div[style*="repeat(3,1fr)"],
+  div[style*="repeat(4,1fr)"],
+  div[style*="repeat(5,1fr)"] { grid-template-columns:repeat(2,1fr) !important; }
+  /* ตาราง scroll แนวนอนแทนล้น */
+  .box { overflow-x:auto; }
+  table { font-size:.75rem; min-width:480px; }
+  th, td { padding:6px 8px; white-space:nowrap; }
   /* กราฟ */
-  canvas { max-height:220px; }
+  canvas { max-height:200px; }
+  /* monthly cards จาก JS */
+  #monthlyCards { grid-template-columns:repeat(2,1fr) !important; }
 }
 </style>
 </head>
 <body>
 <header>
   <h1>🏥 Dashboard คลินิก</h1>
-  <span>อัพเดท: 02/05/2026 22:09</span>
+  <span>อัพเดท: 02/05/2026 22:15</span>
 </header>
 
 <div class="tabs">
@@ -457,7 +462,7 @@ tr:hover td { background:#f7fafc; }
         </tr></tbody>
     </table>
   </div>
-  <div class="footer">ตรวจสอบล่าสุด: 02/05/2026 22:08 · อัพเดทอัตโนมัติทุกศุกร์ 20:00 น.</div>
+  <div class="footer">ตรวจสอบล่าสุด: 02/05/2026 22:14 · อัพเดทอัตโนมัติทุกศุกร์ 20:00 น.</div>
 </div>
 </div>
 
