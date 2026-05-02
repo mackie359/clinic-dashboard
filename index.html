@@ -56,21 +56,33 @@ tr:hover td { background:#f7fafc; }
   div[style*="repeat(3,1fr)"],
   div[style*="repeat(4,1fr)"],
   div[style*="repeat(5,1fr)"] { grid-template-columns:repeat(2,1fr) !important; }
-  /* ตาราง scroll แนวนอนแทนล้น */
-  .box { overflow-x:auto; }
-  table { font-size:.75rem; min-width:480px; }
-  th, td { padding:6px 8px; white-space:nowrap; }
-  /* กราฟ */
-  canvas { max-height:200px; }
   /* monthly cards จาก JS */
   #monthlyCards { grid-template-columns:repeat(2,1fr) !important; }
+  /* กราฟ */
+  canvas { max-height:200px; }
+  /* Top5 ยา — ยุบเป็นแนวตั้ง */
+  #page-medicine .box > div[style*="display:flex"] {
+    flex-wrap:wrap !important;
+    gap:8px !important;
+  }
+  #page-medicine .box > div[style*="display:flex"] > div[style*="min-width"] {
+    min-width:unset !important;
+    flex:1 1 40% !important;
+  }
+  /* ตารางทั้งหมด — ห่อแล้ว scroll แนวนอน */
+  .box { overflow-x:auto; }
+  table { font-size:.75rem; min-width:420px; }
+  th, td { padding:6px 7px; white-space:nowrap; }
+  /* ตารางรายเดือน — ซ่อนคอลัมน์วันทำงานและ margin บนมือถือ */
+  #monthlyTable td:nth-child(4),
+  #monthlyTable th:nth-child(4) { display:none; }
 }
 </style>
 </head>
 <body>
 <header>
   <h1>🏥 Dashboard คลินิก</h1>
-  <span>อัพเดท: 02/05/2026 22:15</span>
+  <span>อัพเดท: 02/05/2026 22:20</span>
 </header>
 
 <div class="tabs">
@@ -462,7 +474,7 @@ tr:hover td { background:#f7fafc; }
         </tr></tbody>
     </table>
   </div>
-  <div class="footer">ตรวจสอบล่าสุด: 02/05/2026 22:14 · อัพเดทอัตโนมัติทุกศุกร์ 20:00 น.</div>
+  <div class="footer">ตรวจสอบล่าสุด: 02/05/2026 22:20 · อัพเดทอัตโนมัติทุกศุกร์ 20:00 น.</div>
 </div>
 </div>
 
