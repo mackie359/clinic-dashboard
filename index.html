@@ -82,7 +82,7 @@ tr:hover td { background:#f7fafc; }
 <body>
 <header>
   <h1>🏥 Dashboard คลินิก</h1>
-  <span>อัพเดท: 03/05/2026 01:06</span>
+  <span>อัพเดท: 03/05/2026 15:04</span>
 </header>
 
 <div class="tabs">
@@ -475,7 +475,7 @@ tr:hover td { background:#f7fafc; }
         </tr></tbody>
     </table>
   </div>
-  <div class="footer">ตรวจสอบล่าสุด: 03/05/2026 01:06 · อัพเดทอัตโนมัติทุกศุกร์ 20:00 น.</div>
+  <div class="footer">ตรวจสอบล่าสุด: 03/05/2026 15:03 · อัพเดทอัตโนมัติทุกศุกร์ 20:00 น.</div>
 </div>
 </div>
 
@@ -1045,13 +1045,14 @@ document.getElementById('nurseList').innerHTML = nurseHTML || '<p style="color:#
 - name: ชื่อยาตามที่เขียนในบิล (เต็มๆ ไม่ตัด)
 - qty: จำนวนเม็ด/แคปซูลต่อกล่อง (คำนวณจากชื่อยา เช่น 10X10=100, 100X10=1000, 1000S=1000 ถ้าไม่มีให้ใส่ null)
 - price: ราคาต่อกล่อง/ขวด (ดูจากคอลัมน์ UNIT PRICE หรือ ราคาต่อหน่วย ไม่ใช่ราคารวม)
+- expiry: วันหมดอายุในรูปแบบ DD/MM/YYYY (ถ้ามีในบิล เช่น EXP, Exp.Date, หมดอายุ ถ้าไม่มีให้ใส่ null)
 
 กฎ:
 - ถ้ารายการมีคำว่า FOC หรือ (FOC) หรือราคา 0 ให้ข้ามทิ้ง
 - ถ้ามีรายการซ้ำชื่อ ให้เอาแค่รายการที่มีราคาจริง
 - ตอบเป็น JSON array เท่านั้น ห้ามมีคำอธิบาย
 
-ตัวอย่าง output: [{"name":"LOFIBRATE 160 TAB 10X10 S","qty":100,"price":600}]`;
+ตัวอย่าง output: [{"name":"LOFIBRATE 160 TAB 10X10 S","qty":100,"price":600,"expiry":"31/12/2026"}]`;
 
       // ดึง list model จาก OpenRouter แล้วเลือก free vision model แรกที่ใช้ได้
       status.innerHTML = '⏳ กำลังดึงรายชื่อ model...';
@@ -1145,12 +1146,15 @@ document.getElementById('nurseList').innerHTML = nurseHTML || '<p style="color:#
       items.forEach(item => {
         const id = ++calcUid;
         const autoQty = item.qty && item.qty > 0;
+        const s = item.name ? STOCK_MAP[item.name.toUpperCase()] : null;
         calcRows.push({
           id,
           name: item.name || '',
           qty: autoQty ? String(item.qty) : '',
           price: item.price ? String(item.price) : '',
-          _auto: autoQty
+          expiry: item.expiry || '',
+          _auto: autoQty,
+          _stockCost: s ? s.cost : null
         });
       });
       calcRenderRows();
