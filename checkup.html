@@ -4498,7 +4498,7 @@ function planBlock(last, prev, sex, age, C){
     <div class="nL"><div class="lbl">${esc(T("h_next","นัดครั้งถัดไป"))}</div><div class="dt">${dueTxt}</div><div class="sub">${sub}</div></div>
     <div><div class="kind">${esc(kind || "ตรวจสุขภาพประจำปีครั้งถัดไป")}</div>
       <div class="rep2">สิ่งที่ต้องตรวจ: ${labTxt}${bp ? " · วัดความดันซ้ำ (นำบันทึกความดันที่วัดเองที่บ้านมาด้วย)" : ""}</div>
-      ${npo ? '<span class="npo2">${esc(T("npo","งดอาหาร 8–12 ชั่วโมงก่อนมา · จิบน้ำเปล่าได้"))}</span>' : ""}
+      ${npo ? `<span class="npo2">${esc(T("npo","งดอาหาร 8–12 ชั่วโมงก่อนมา · จิบน้ำเปล่าได้"))}</span>` : ""}
       <div class="sig">${esc(T("signature","แพทย์ผู้ตรวจ ____________________________ · กรุณานำใบนี้มาด้วยทุกครั้ง"))}</div></div>
   </div>`;
 }
