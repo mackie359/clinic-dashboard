@@ -92,6 +92,8 @@ button.big{font-size:14.5px;padding:10px 18px;margin-bottom:9px}
 .pastewrap summary{font-size:12.2px;color:var(--soft);cursor:pointer}
 .pastewrap textarea{margin-top:8px}
 
+.dxwarn{flex-basis:100%;margin-top:4px;padding:7px 11px;border-radius:8px;background:#fdf3e3;border:1.5px solid #e0b063;color:#7a4c07;font-size:12.5px;line-height:1.5}
+.dxwarn b{color:#8a4b00}
 .dxrow{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:12px;padding:9px 12px;border:1.5px solid var(--line2);border-radius:9px;background:#fafcfc}
 .dxlbl{font-size:11.8px;color:var(--soft);font-weight:600;margin-right:4px}
 .ck{display:inline-flex;align-items:center;gap:5px;font-size:12.6px;margin:0;color:var(--ink)}
@@ -363,6 +365,7 @@ input.oob{background:#fff8e6;border-color:var(--amber)}
       <label class="ck"><input type="checkbox" id="dx_smoke"> สูบบุหรี่</label>
       <label class="ck"><input type="checkbox" id="dx_fhx"> ญาติสายตรงเป็นโรคหัวใจก่อนวัย</label>
       <label class="ck"><input type="checkbox" id="dx_gout"> เคยมีข้ออักเสบเกาต์ / นิ่วกรดยูริก</label>
+      <div id="dxWarn" class="dxwarn" style="display:none"></div>
     </div>
     <div class="actions"><button id="btnLoadHN">ดึงประวัติ HN นี้</button><span id="hnInfo" class="unit"></span></div>
     <div class="hist" id="histBox"></div>
@@ -3196,7 +3199,7 @@ const TXT_REG = [
   ["predm","เบาหวาน","ก่อนเบาหวาน (A1c 5.7–5.9)","น้ำตาลสูงกว่าปกติเล็กน้อย ควบคุมอาหารและตรวจซ้ำปีหน้า"],
   ["predm_high","เบาหวาน","ก่อนเบาหวานเสี่ยงสูง (A1c ≥ 6.0)","น้ำตาลเริ่มสูงแต่ยังไม่ถึงเกณฑ์เบาหวาน ถ้าปรับพฤติกรรมตอนนี้ยังกลับมาปกติได้"],
   ["ht_confirm","ความดัน","140–159 / 90–99","ความดันสูงกว่าเกณฑ์ ให้วัดที่บ้านเช้า-เย็น 7 วัน แล้วนำผลมาด้วย"],
-  ["ht_elevated","ความดัน","130–139 / 80–89","ความดันเริ่มสูง ลดอาหารเค็มและออกกำลังกาย แล้วมาวัดซ้ำ"],
+  ["ht_elevated","ความดัน","130–139 / 85–89","ความดันเริ่มสูง ลดอาหารเค็มและออกกำลังกาย แล้วมาวัดซ้ำ"],
   ["ht_severe","ความดัน","≥ 180/110","ความดันสูงมาก ต้องกลับมาพบแพทย์ภายในสัปดาห์นี้"],
   ["ht_stage2","ความดัน","160–179 / 100–109","ความดันสูง ควรเริ่มการรักษา และวัดความดันที่บ้านทุกวัน"],
   ["cvrisk_high","ไขมัน","Thai CV Risk ≥ 20%","โอกาสเกิดโรคหัวใจและหลอดเลือดใน 10 ปีสูง ควรพบแพทย์เพื่อวางแผนลดความเสี่ยงทุกด้าน"],
@@ -3329,7 +3332,7 @@ function planFindings(v, sex, age, prev, C){
         detail:`${sbp}/${d} mmHg — วัดครั้งเดียวยังวินิจฉัยไม่ได้ ให้วัดที่บ้าน (HBPM) เช้า-เย็น ติดต่อกัน 7 วัน แล้วนำบันทึกมาให้แพทย์`,
         patient: T("ht_confirm","ความดันสูงกว่าเกณฑ์ ให้วัดที่บ้านเช้า-เย็น 7 วัน แล้วนำผลมาด้วย"),
         tests:["bp"] });
-    } else if (sbp >= 130 || d >= 80){
+    } else if (sbp >= 130 || d >= 85){
       add({ w:WK.m3, sev:"watch", title:"ความดันโลหิตเริ่มสูง",
         detail:`${sbp}/${d} mmHg — ลดเค็ม (โซเดียม < 2,000 มก./วัน) ลดน้ำหนัก ออกกำลังกาย แล้ววัดซ้ำ`,
         patient: T("ht_elevated","ความดันเริ่มสูง ลดอาหารเค็มและออกกำลังกาย แล้วมาวัดซ้ำ"),
@@ -3684,9 +3687,38 @@ function ageNow(){
   if (!by || !vd) return null;
   return beYear(vd) - by;
 }
-function bpStatus(s){ return s < 130 ? "ok" : (s < 140 ? "watch" : "bad"); }
+/* เกณฑ์สมาคมความดันโลหิตสูงแห่งประเทศไทย: ปกติ < 130/85 · ปกติค่อนข้างสูง 130–139/85–89 · สูง ≥ 140/90
+   ต้องดูตัวล่างด้วย ไม่งั้นช่องสถานะกับกล่องเฝ้าระวังจะขัดกันเอง */
+function bpStatus(s, d){
+  d = (d === undefined || d === null || d === "") ? 0 : Number(d);
+  if (s >= 140 || d >= 90) return "bad";
+  if (s >= 130 || d >= 85) return "watch";
+  return "ok";
+}
 function waistStatus(w, sex){ if (!w) return null; const hi = sex==="M" ? 90 : 80; return w < hi ? "ok" : "bad"; }
 
+/* กันลืมติ๊กช่องโรคประจำตัว — แอปไม่มีทางรู้เองว่าคนไข้เป็นเบาหวาน/ความดันอยู่แล้ว
+   ถ้าค่าเข้าเกณฑ์แต่ยังไม่ติ๊ก คำแนะนำที่ออกจะกลายเป็น “สงสัย ต้องตรวจซ้ำ” แทนที่จะเป็น “คุมไม่ได้ ควรปรับยา” */
+function dxWarn(raw){
+  const box = $("dxWarn"); if (!box) return;
+  const dx = raw.dx || {};
+  const a1c = raw.hba1c, fbs = raw.fbs, sbp = raw.sbp, dbp = raw.dbp;
+  const msgs = [];
+  if (!dx.dm && ((a1c !== null && a1c >= 6.5) || (fbs !== null && fbs >= 126))){
+    const why = [];
+    if (a1c !== null && a1c >= 6.5) why.push("HbA1c " + a1c + "%");
+    if (fbs !== null && fbs >= 126) why.push("FBS " + fbs);
+    msgs.push("<b>" + why.join(" · ") + "</b> เข้าเกณฑ์เบาหวานแล้ว แต่ยังไม่ได้ติ๊ก <b>“เบาหวาน (วินิจฉัยแล้ว)”</b> — "
+            + "ถ้าเป็นผู้ป่วยเบาหวานเดิม ให้ติ๊กด้วย ใบสรุปจะเปลี่ยนจาก “สงสัย ต้องตรวจซ้ำ” เป็นการประเมินว่าคุมได้ตามเป้าหรือไม่ "
+            + "และเป้าหมายไขมันเลวจะเข้มขึ้นตามความเสี่ยง");
+  }
+  if (!dx.ht && ((sbp !== null && sbp >= 140) || (dbp !== null && dbp >= 90))){
+    msgs.push("ความดัน <b>" + (sbp||"—") + "/" + (dbp||"—") + "</b> อยู่ในเกณฑ์ความดันสูง แต่ยังไม่ได้ติ๊ก <b>“ความดันโลหิตสูง”</b> — "
+            + "ถ้าเป็นผู้ป่วยความดันเดิม ให้ติ๊กด้วย จะได้นับเป็นปัจจัยเสี่ยงในการตั้งเป้าไขมัน");
+  }
+  box.innerHTML = msgs.map(m => "<div>⚠️ " + m + "</div>").join("");
+  box.style.display = msgs.length ? "block" : "none";
+}
 function recalc(){
   const sex = $("sex").value;
   /* เติม eGFR ให้อัตโนมัติถ้ายังว่าง — ต้องทำก่อนคิดสถานะ */
@@ -3699,6 +3731,7 @@ function recalc(){
   }
   const raw0 = readFormRaw();
   const C = buildCtx(raw0, sex, ageNow());
+  dxWarn(raw0);
   REF.forEach(r => {
     $("r_"+r.k).textContent = r.ref(sex, C);
     const v = num($("f_"+r.k).value), c = $("c_"+r.k);
@@ -4429,8 +4462,8 @@ function buildSheet(hn, p){
     body += `<tr><td class="l"><b>ดัชนีมวลกาย</b><span>BMI · kg/m²</span></td><td class="old">18.5–22.9</td>
       ${bvals.map((x,i)=>`<td class="${i===nCol-1?"now":"old"}">${fmt(x,1)}</td>`).join("")}
       <td class="c">${deltaCell(bvals,1,true)}</td><td class="c"><span class="chip ${bi.st}">${bi.txt}</span></td></tr>`; }
-  if (last.sbp){ const bs = bpStatus(last.sbp);
-    body += `<tr><td class="l"><b>ความดันโลหิต</b><span>mmHg</span></td><td class="old">&lt; 130/80</td>
+  if (last.sbp){ const bs = bpStatus(last.sbp, last.dbp);
+    body += `<tr><td class="l"><b>ความดันโลหิต</b><span>mmHg</span></td><td class="old">&lt; 130/85</td>
       ${rows.map((v,i)=>`<td class="${i===nCol-1?"now":"old"}">${v.sbp?v.sbp+"/"+v.dbp:"—"}</td>`).join("")}
       <td class="c">${deltaCell(rows.map(v=>v.sbp??null),0,true)}</td>
       <td class="c"><span class="chip ${bs}">${ST_TH[bs]}</span></td></tr>`; }
