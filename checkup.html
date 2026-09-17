@@ -4041,8 +4041,12 @@ function setNetUI(text, state){
   $("netName").textContent = text;
   $("netDot").className = "dot" + (state ? " " + state : "");
 }
+/* จำนวนคนไข้ที่คลาวด์ตอบมาล่าสุด — ห้ามนับจาก DB.patients เพราะนั่นคือสำเนาเฉพาะคนที่เครื่องนี้เคยเปิด
+   เครื่องที่เพิ่งตั้งค่าใหม่จะมีสำเนา 0 คน ทั้งที่ในคลาวด์มีคนไข้เต็ม */
+let cloudCount = null;
 function netLabel(){
-  const n = Object.keys(DB.patients).length, q = outbox().length;
+  const q = outbox().length;
+  const n = (cloudCount === null) ? Object.keys(DB.patients).length : cloudCount;
   return (netOK ? `เชื่อมต่อแล้ว · ${n} คน` : "ออฟไลน์ — ใช้สำเนาในเครื่อง") + (q ? ` · รอส่ง ${q}` : "");
 }
 function refreshNet(){ setNetUI(netLabel(), netOK ? "on" : (CFG.url ? "warn" : "")); }
@@ -4071,7 +4075,7 @@ async function api(action, extra, timeoutMs){
 }
 
 async function cloudPing(){
-  try{ const j = await api("ping", null, 12000); return j; }
+  try{ const j = await api("ping", null, 12000); if (typeof j.count === "number") cloudCount = j.count; refreshNet(); return j; }
   catch(e){ netOK = false; refreshNet(); throw e; }
 }
 
@@ -4108,6 +4112,7 @@ async function refreshPatientList(){
     const dl = $("hnList");
     dl.innerHTML = j.patients.map(p =>
       `<option value="${esc(p.hn)}">${esc(p.name || "")} · ตรวจแล้ว ${p.visits} ครั้ง</option>`).join("");
+    cloudCount = j.patients.length; refreshNet();
     return j.patients.length;
   }catch(e){ return -1; }
 }
@@ -4157,7 +4162,7 @@ async function initStore(){
   setNetUI("กำลังเชื่อมต่อ…", "warn");
   try{
     const j = await cloudPing();
-    setNetUI(`เชื่อมต่อแล้ว · ${j.count} คน`, "on");
+    netOK = true; refreshNet();
     const n = await flushOutbox();
     if (n) flash(`ส่งข้อมูลที่ค้างอยู่ ${n} รายการขึ้นคลาวด์เรียบร้อย`, "ok");
     refreshPatientList(); syncTexts();
@@ -4221,7 +4226,7 @@ async function doTestCfg(){
   setNetUI("กำลังทดสอบ…", "warn");
   try{
     const j = await cloudPing();
-    setNetUI(`เชื่อมต่อแล้ว · ${j.count} คน`, "on");
+    netOK = true; refreshNet();
     flash(`เชื่อมต่อสำเร็จ — พร้อมใช้งานแล้ว (ตอนนี้มีคนไข้ในระบบ ${j.count} คน)`, "ok");
     showDone();
     await flushOutbox(); refreshPatientList(); await syncTexts();
