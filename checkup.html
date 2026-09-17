@@ -426,7 +426,8 @@ input.oob{background:#fff8e6;border-color:var(--amber)}
       <div class="planbd" id="planBody"></div>
       <div class="planft">
         <div class="dtwrap"><label><b>วันนัดครั้งถัดไป</b> <span class="unit">แก้ได้</span></label>
-          <input type="date" id="nextDate"></div>
+          <input type="date" id="nextDate">
+          <div id="dueHint" class="unit" style="display:none;margin-top:4px"></div></div>
         <div class="rep" id="planRep"></div>
       </div>
     </div>
@@ -3808,6 +3809,19 @@ function renderPlan(C){
        <div class="de">ให้คำแนะนำเรื่องอาหาร การออกกำลังกาย และนัดตรวจสุขภาพประจำปีครั้งถัดไป</div></div></div>`;
 
   if (!dateTouched) $("nextDate").value = P.dueISO;
+  {
+    const hint = $("dueHint");
+    if (hint){
+      const cur = $("nextDate").value;
+      if (cur && P.dueISO && cur !== P.dueISO){
+        hint.innerHTML = "ระบบคำนวณจากผลล่าสุดได้ <b>" + thDate(P.dueISO) + "</b> — "
+                       + "<a href=\"#\" id=\"useDue\">ใช้วันนี้แทน</a>";
+        hint.style.display = "block";
+        const a = $("useDue");
+        if (a) a.onclick = e => { e.preventDefault(); $("nextDate").value = P.dueISO; dateTouched = false; recalc(); };
+      } else hint.style.display = "none";
+    }
+  }
 
   const labs = testLabel(P.labs);
   const bits = [];
@@ -4296,6 +4310,7 @@ function readForm(){
     v.plan_labs  = PLAN.labs;
     v.plan_npo   = PLAN.NPO;
     v.plan_bp    = PLAN.bpRecheck;
+    v.plan_due   = PLAN.dueISO;   /* วันที่ระบบคำนวณตอนนั้น — ใช้แยกว่าหมอแก้วันเองหรือเปล่า */
     v.plan_items = PLAN.findings.map(f => ({ sev:f.sev, w:f.w, title:f.title, patient:f.patient }));
     v.plan_screens = PLAN.screens;
     v.cv_risk = PLAN.ctx && PLAN.ctx.risk !== null ? Math.round(PLAN.ctx.risk*1000)/1000 : null;
@@ -4355,7 +4370,10 @@ function openVisit(p, date){
   UAF.forEach(f => $(f.k).value = v[f.k] || "");
   $("ua_other").value = v.ua_other || "";
   setDx(v.dx || p.dx || {});
-  $("nextDate").value = v.next_date || ""; dateTouched = !!v.next_date;
+  /* เดิมล็อกวันไว้ทุกครั้งที่เปิดเคสเก่า ทำให้แก้ข้อมูล (เช่น ติ๊กเบาหวาน) แล้ววันนัดไม่ขยับ
+     ตอนนี้ล็อกเฉพาะวันที่หมอตั้งเองจริงๆ คือต่างจากที่ระบบคำนวณไว้ตอนบันทึก */
+  $("nextDate").value = v.next_date || "";
+  dateTouched = !!v.next_date && !!v.plan_due && v.next_date !== v.plan_due;
   $("histBox").querySelectorAll("tr.hrow").forEach(tr => tr.classList.toggle("sel", tr.dataset.d === date));
   recalc();
   flash(`เปิดผลตรวจวันที่ ${thDate(date)} ขึ้นมาแล้ว — แก้แล้วกดบันทึกจะทับของเดิมวันนั้น หรือกด “สร้าง + พิมพ์ใบสรุป” เพื่อพิมพ์ซ้ำ`, "info");
