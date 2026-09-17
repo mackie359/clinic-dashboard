@@ -2821,6 +2821,7 @@ function doPost(e){
       case "restore": const n = restoreAll(req.db, !!req.merge); return respond({ ok:true, imported:n });
       case "delete_visit": deleteVisit(String(req.hn||""), String(req.date||"")); return respond({ ok:true });
       case "texts":   return respond({ ok:true, texts: syncTexts(req.registry) });
+      case "drop_text": return respond({ ok:true, dropped: dropText(String(req.key||"")) });
       default:        return respond({ ok:false, error:"unknown action" });
     }
   } catch (err){
@@ -2840,6 +2841,13 @@ function sheet(name, cols){
   if (sh.getLastRow() === 0){
     sh.appendRow(cols); sh.setFrozenRows(1);
     sh.getRange(1,1,1,cols.length).setFontWeight("bold");
+    /* คอลัมน์ hn และ date ต้องเป็นข้อความล้วน — กัน HN ที่ขึ้นต้นด้วย 0 หายไป
+       และกัน Sheet แปลงวันที่เป็นรูปแบบอื่น */
+    try{
+      const iHn = cols.indexOf("hn"), iDate = cols.indexOf("date");
+      if (iHn >= 0)   sh.getRange(1, iHn + 1, sh.getMaxRows(), 1).setNumberFormat("@");
+      if (iDate >= 0) sh.getRange(1, iDate + 1, sh.getMaxRows(), 1).setNumberFormat("@");
+    }catch(e){}
   }
   return sh;
 }
@@ -2851,6 +2859,16 @@ function readAll(sh, cols){
 }
 const cell = v => (v === null || v === undefined) ? "" : v;
 
+/* Google Sheet แปลงข้อความวันที่เป็น Date object เอง — ต้องแปลงกลับก่อนเทียบ
+   ไม่งั้นบันทึกวันเดิมซ้ำจะได้แถวใหม่แทนที่จะทับของเดิม */
+function dstr(v){
+  if (v instanceof Date){
+    const p = n => String(n).length < 2 ? "0" + n : String(n);
+    return v.getFullYear() + "-" + p(v.getMonth() + 1) + "-" + p(v.getDate());
+  }
+  return String(v === null || v === undefined ? "" : v).trim();
+}
+
 /* ---------------- patients ---------------- */
 function countPatients(){ return readAll(sheet(SHEET_PATIENTS, PATIENT_COLS), PATIENT_COLS).length; }
 
@@ -2859,7 +2877,7 @@ function listPatients(){
   const vis = readAll(sheet(SHEET_VISITS, VISIT_COLS), VISIT_COLS);
   const agg = {};
   vis.forEach(v => { const k = String(v.hn); const a = agg[k] || (agg[k] = { n:0, last:"" });
-    a.n++; const d = String(v.date); if (d > a.last) a.last = d; });
+    a.n++; const d = dstr(v.date); if (d > a.last) a.last = d; });
   return pts.map(p => ({ hn:String(p.hn), name:p.name, sex:p.sex, birth_year:p.birth_year || null,
     visits:(agg[String(p.hn)]||{}).n || 0, last_date:(agg[String(p.hn)]||{}).last || "" }));
 }
@@ -2870,8 +2888,9 @@ function getPatient(hn){
   if (!p) return null;
   const vis = readAll(sheet(SHEET_VISITS, VISIT_COLS), VISIT_COLS)
     .filter(v => String(v.hn) === hn)
-    .map(v => { try { return JSON.parse(v.json); } catch(e){ return { date:String(v.date) }; } })
-    .sort((a,b) => String(a.date).localeCompare(String(b.date)));
+    .map(v => { let o; try { o = JSON.parse(v.json); } catch(e){ o = {}; }
+                o.date = dstr(o.date || v.date); return o; })
+    .sort((a,b) => a.date.localeCompare(b.date));
   let dx = {}; try { dx = p.dx ? JSON.parse(p.dx) : {}; } catch(e){}
   return { hn, name:p.name, sex:p.sex, birth_year:p.birth_year || null, dx, visits:vis };
 }
@@ -2894,11 +2913,12 @@ function savePatient(patient, visit){
     const row = VISIT_COLS.map(c => {
       if (c === "hn") return hn;
       if (c === "name") return cell(patient.name);
+      if (c === "date") return dstr(visit.date);
       if (c === "json") return JSON.stringify(visit);
       if (c === "updated_at") return now;
       return cell(visit[c]);
     });
-    const exv = vis.find(v => String(v.hn) === hn && String(v.date) === String(visit.date));
+    const exv = vis.find(v => String(v.hn) === hn && dstr(v.date) === dstr(visit.date));
     if (exv) shV.getRange(exv._row, 1, 1, VISIT_COLS.length).setValues([row]);
     else     shV.appendRow(row);
   }
@@ -2907,7 +2927,7 @@ function savePatient(patient, visit){
 function deleteVisit(hn, date){
   const shV = sheet(SHEET_VISITS, VISIT_COLS);
   const vis = readAll(shV, VISIT_COLS);
-  const exv = vis.find(v => String(v.hn) === hn && String(v.date) === date);
+  const exv = vis.find(v => String(v.hn) === hn && dstr(v.date) === dstr(date));
   if (exv) shV.deleteRow(exv._row);
 }
 
@@ -2919,9 +2939,10 @@ function dumpAll(){
   pts.forEach(p => { let dx={}; try{ dx = p.dx ? JSON.parse(p.dx) : {}; }catch(e){}
     db.patients[String(p.hn)] = { name:p.name, sex:p.sex, birth_year:p.birth_year||null, dx, visits:[] }; });
   vis.forEach(v => { const k = String(v.hn); if (!db.patients[k]) db.patients[k] = { name:v.name, sex:"M", birth_year:null, dx:{}, visits:[] };
-    let o; try { o = JSON.parse(v.json); } catch(e){ o = { date:String(v.date) }; }
+    let o; try { o = JSON.parse(v.json); } catch(e){ o = {}; }
+    o.date = dstr(o.date || v.date);
     db.patients[k].visits.push(o); });
-  Object.values(db.patients).forEach(p => p.visits.sort((a,b) => String(a.date).localeCompare(String(b.date))));
+  Object.values(db.patients).forEach(p => p.visits.sort((a,b) => dstr(a.date).localeCompare(dstr(b.date))));
   return db;
 }
 
@@ -2990,6 +3011,16 @@ function formatTexts(sh){
       sh.getRange(2, 4, last - 1, 1).setWrap(true).setFontColor("#000000");
     }
   }catch(e){}
+}
+
+/* ลบแถวหนึ่งออกจากแท็บคำแนะนำ (ใช้เก็บกวาดคีย์ที่ไม่ใช้แล้ว) */
+function dropText(key){
+  if (!key) return false;
+  const sh = sheet(SHEET_TEXTS, TEXT_COLS);
+  const rows = readAllTexts(sh);
+  const hit = rows.find(r => String(r.key) === key);
+  if (!hit) return false;
+  sh.deleteRow(hit._row); return true;
 }
 </script>
 <script>
