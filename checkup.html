@@ -310,10 +310,14 @@ input.oob{background:#fff8e6;border-color:var(--amber)}
         <p class="tip">ที่ขึ้นเตือนเพราะเป็นโปรแกรมที่เราเขียนเอง ไม่ได้ผ่านการรีวิวของ Google — เป็นเรื่องปกติ</p>
         <p>สุดท้าย คัดลอก <b>URL ของเว็บแอป</b> ที่ได้ มาวางในช่องนี้</p>
         <div class="urlrow">
-          <input id="cfgUrl" placeholder="https://script.google.com/macros/s/..../exec" autocomplete="off">
+          <input id="cfgUrl" placeholder="https://script.google.com/macros/s/..../exec — หรือวางลิงก์ตั้งค่าจากเครื่องแรกก็ได้" autocomplete="off">
+          <input id="cfgPin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="รหัส" style="max-width:88px;text-align:center;letter-spacing:.12em;font-weight:700">
           <button class="primary" id="btnTestCfg">เชื่อมต่อ</button>
         </div>
-        <input id="cfgPin" type="hidden">
+        <p class="tip">ช่อง <b>รหัส</b> ระบบใส่ให้เองตอนตั้งเครื่องแรก ไม่ต้องแก้</p>
+        <p class="tip warn"><b>ถ้านี่คือเครื่องที่ 2 (มือถือ ไอแพด หรือคอมอีกเครื่อง)</b> — ไม่ต้องทำขั้น 1–3 ใหม่ทั้งหมด
+          ให้ไปที่<b>เครื่องแรก</b> กดปุ่ม <b class="kbd">ตั้งค่า</b> แล้วสแกน QR ที่ขึ้นมา หรือกด “คัดลอกลิงก์” ส่งมาเปิดที่เครื่องนี้ ระบบจะตั้งให้เองทั้งหมด
+          ถ้าอยากพิมพ์เอง ต้องใส่<b>ทั้ง URL และรหัส 4 หลักให้ตรงกับเครื่องแรก</b> — ใส่แต่ URL อย่างเดียวจะเชื่อมไม่ได้</p>
       </div>
     </div>
 
@@ -324,6 +328,7 @@ input.oob{background:#fff8e6;border-color:var(--amber)}
           <p><b>เปิดใช้ในเครื่องอื่น</b> — เอามือถือสแกนรูปนี้ ตั้งค่าให้อัตโนมัติ ไม่ต้องพิมพ์อะไร</p>
           <p class="tip">บนมือถือ หลังเปิดแล้วกดปุ่มแชร์ → <b>เพิ่มไปยังหน้าจอโฮม</b> จะได้ไอคอนเหมือนแอปจริง</p>
           <button id="btnShareCfg">คัดลอกลิงก์แทนการสแกน</button>
+          <p class="tip">รหัสของคลินิกคือ <b id="cfgPinShow">—</b> — ใช้ตอนตั้งค่าเครื่องอื่นด้วยมือ (คู่กับ URL)</p>
           <p class="tip warn">รูปนี้และลิงก์นี้มีค่าเท่ากุญแจห้องเวชระเบียน — ให้เฉพาะเครื่องของคลินิกเท่านั้น อย่าโพสต์ในกลุ่ม</p>
         </div>
         <div class="qrbox"><div id="qrImg"></div></div>
@@ -4184,11 +4189,28 @@ function doCopyGs(){
 function showDone(){
   $("wzDone").style.display = "block";
   ["wz1","wz2","wz3"].forEach(i => $(i).classList.add("ok"));
+  const ps = $("cfgPinShow"); if (ps) ps.textContent = CFG.pin || "—";
   drawQR();
 }
 
 async function doTestCfg(){
-  CFG.url = $("cfgUrl").value.trim(); CFG.pin = ensurePin();
+  let raw = $("cfgUrl").value.trim();
+  /* วางลิงก์ตั้งค่าจากเครื่องแรกมาในช่องนี้ก็ได้ — ดึง URL กับรหัสออกมาให้เอง */
+  const lk = /[#&]setup=([A-Za-z0-9+/]+)/.exec(raw);
+  if (lk){
+    try{
+      const c = b64d(lk[1]);
+      if (c && c.url){
+        raw = String(c.url);
+        $("cfgUrl").value = raw;
+        $("cfgPin").value = String(c.pin || "");
+        flash("อ่านลิงก์ตั้งค่าจากเครื่องแรกได้แล้ว — กำลังเชื่อมต่อ", "info");
+      }
+    }catch(e){}
+  }
+  CFG.url = raw;
+  const typedPin = ($("cfgPin").value || "").trim();
+  CFG.pin = typedPin || ensurePin();
   if (!CFG.url){ flash("ยังไม่ได้วาง URL ของเว็บแอปจากขั้นที่ 3", "err"); return; }
   if (/\/dev(\?|$)/.test(CFG.url)){
     flash("URL นี้ลงท้ายด้วย /dev ซึ่งใช้ได้เฉพาะตอนที่เปิด Apps Script ค้างไว้ — กลับไปคัดลอก “URL ของเว็บแอป” ที่ลงท้ายด้วย /exec", "err");
@@ -4205,6 +4227,10 @@ async function doTestCfg(){
     await flushOutbox(); refreshPatientList(); await syncTexts();
   }catch(e){
     setNetUI("เชื่อมต่อไม่ได้", "warn");
+    if (/PIN/i.test(e.message)){
+      flash("URL ถูกต้องแล้ว แต่รหัสของเครื่องนี้ไม่ตรงกับฐานข้อมูล — ถ้านี่คือเครื่องที่ 2 ให้ไปที่เครื่องแรก กด “ตั้งค่า” แล้วสแกน QR หรือคัดลอกลิงก์มาเปิดที่เครื่องนี้ หรือพิมพ์รหัส 4 หลักของเครื่องแรกลงในช่อง “รหัส”", "err");
+      return;
+    }
     flash("เชื่อมต่อไม่สำเร็จ: " + e.message
       + (looksRight ? " — ลองตรวจว่าขั้นที่ 3 เลือก “ทุกคน (Anyone)” แล้วหรือยัง"
                     : " — URL ที่วางมาหน้าตาไม่เหมือนของ Apps Script (ปกติขึ้นต้น https://script.google.com/macros/s/ และลงท้าย /exec)"), "err");
