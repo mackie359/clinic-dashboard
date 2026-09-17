@@ -431,6 +431,7 @@ input.oob{background:#fff8e6;border-color:var(--amber)}
     <div class="actions">
       <button class="primary" id="btnSave">บันทึกลงไฟล์</button>
       <button id="btnSheet">สร้าง + พิมพ์ใบสรุป</button>
+      <button id="btnPdf" title="เปิดหน้าต่างปริ้น แล้วเลือกปลายทางเป็น “บันทึกเป็น PDF” จะได้ไฟล์ไว้ส่งให้คนไข้">บันทึกเป็น PDF</button>
       <button id="btnNew">เริ่มคนใหม่</button>
       <span style="flex:1"></span>
       <button class="ghost" id="btnSyncTexts" title="ดึงคำแนะนำที่แก้ไว้ในแท็บ “คำแนะนำ” ของ Google Sheet มาใช้">โหลดคำแนะนำใหม่</button>
@@ -4554,12 +4555,42 @@ async function doSave(){
            : `เน็ตไม่ถึงคลาวด์ — เก็บเข้าคิวไว้แล้ว ระบบจะส่งให้เองเมื่อกลับมาออนไลน์ (ยังพิมพ์ใบได้ตามปกติ)`,
         ok ? "ok" : "err");
 }
+/* เบราว์เซอร์ใช้ document.title เป็นชื่อไฟล์ตอนเลือก “บันทึกเป็น PDF”
+   จึงเปลี่ยนชื่อหน้าชั่วคราวก่อนเปิดหน้าต่างปริ้น แล้วคืนค่าเดิมทีหลัง */
+function pdfName(p, dateISO){
+  const clean = t => String(t || "").replace(/[\\/:*?"<>|#%&{}]+/g, "").replace(/\s+/g, " ").trim();
+  const nm = clean(p && p.name) || "ไม่ระบุชื่อ";
+  let d = "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateISO || ""))){
+    const a = String(dateISO).split("-");
+    d = a[2] + "-" + a[1] + "-" + (Number(a[0]) + 543);
+  }
+  return ("ผลตรวจ_" + nm + (d ? "_" + d : "")).slice(0, 90);
+}
+function printSheet(title){
+  const old = document.title;
+  let done = false;
+  const restore = () => { if (done) return; done = true; document.title = old;
+                          window.removeEventListener("afterprint", restore); };
+  if (title) document.title = title;
+  window.addEventListener("afterprint", restore);
+  $("sheetWrap").classList.add("preview");
+  setTimeout(() => { window.print(); setTimeout(restore, 60000); }, 350);
+}
 async function doSheet(){
   const r = saveVisit(); if (!r) return;
   renderHist(r.p);
   buildSheet(r.hn, r.p);
-  $("sheetWrap").classList.add("preview");
-  setTimeout(() => window.print(), 350);
+  printSheet(pdfName(r.p, r.visit.date));
+  if (CFG.url){ const ok = await cloudSave(r.patient, r.visit); refreshNet(); if (ok) refreshPatientList(); }
+}
+async function doPdf(){
+  const r = saveVisit(); if (!r) return;
+  renderHist(r.p);
+  buildSheet(r.hn, r.p);
+  const fn = pdfName(r.p, r.visit.date);
+  flash("เปิดหน้าต่างปริ้นให้แล้ว — ตรงช่อง “ปลายทาง” ให้เลือก “บันทึกเป็น PDF” แล้วกดบันทึก จะได้ไฟล์ชื่อ " + fn + ".pdf", "info");
+  printSheet(fn);
   if (CFG.url){ const ok = await cloudSave(r.patient, r.visit); refreshNet(); if (ok) refreshPatientList(); }
 }
 function doNew(){
@@ -4626,6 +4657,7 @@ $("btnParse").onclick    = parsePaste;
 $("btnClearParse").onclick = clearParsed;
 $("btnSave").onclick    = doSave;
 $("btnSheet").onclick   = doSheet;
+$("btnPdf").onclick     = doPdf;
 $("btnNew").onclick     = doNew;
 $("btnSyncTexts").onclick = async () => {
   if (!CFG.url){ flash("ต้องเชื่อมต่อฐานข้อมูลก่อน", "err"); return; }
@@ -4640,7 +4672,7 @@ $("importFile").onchange = doImport;
 $("hn").addEventListener("change", loadHN);
 initStore().then(recalc);
 window.addEventListener("online", () => { flushOutbox().then(n => { if (n) flash(`กลับมาออนไลน์ — ส่งข้อมูลที่ค้าง ${n} รายการแล้ว`, "ok"); }); });
-window.__app = { REF, parsePaste, buildSheet, recalc, api, cloudSave, cloudGet, saveVisit, initStore,
+window.__app = { REF, parsePaste, buildSheet, recalc, api, cloudSave, cloudGet, saveVisit, initStore, pdfName, printSheet, doPdf,
   get DB(){ return DB; }, set DB(v){ DB = v; }, get CFG(){ return CFG; }, set CFG(v){ CFG = v; saveCFG(); } };
 </script>
 </body></html>
