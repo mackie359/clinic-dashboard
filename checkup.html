@@ -3049,11 +3049,20 @@ const band = (v, okHi, watchHi) => v <= okHi ? "ok" : (v <= watchHi ? "watch" : 
    ------------------------------------------------------------ */
 /* Thai CV Risk Score v2.5 (Rama/EGAT, 2021) สูตรที่ใช้ Total cholesterol
    ใช้ได้ช่วงอายุ 35–70 ปี  ผลเป็นโอกาสเกิดโรคหัวใจและหลอดเลือดใน 10 ปี */
+/* Thai CV Risk Score (Rama-EGAT) — สูตรและสัมประสิทธิ์ตรงกับ formular.js ของรามาทุกหลัก
+   TC clamp ที่ 280 เพราะฟอร์มของรามาตั้ง max=280 และสั่งผู้ใช้ว่า “ถ้าเกินให้เลือกค่าสูงสุด”
+   ถ้าไม่ clamp คนไขมันสูงมากจะได้ตัวเลขที่สูตรลากออกไปไกลกว่าข้อมูลที่ใช้สร้าง */
+const CV_TC_MAX = 280;
 function thaiCVRisk(age, male, sbp, dm, tc, smoke){
   if (!age || !sbp || !tc || age < 35 || age > 70 || sbp < 70) return null;
-  const full = 0.08183*age + 0.39499*(male?1:0) + 0.02084*sbp + 0.69974*(dm?1:0) + 0.00212*tc + 0.41916*(smoke?1:0);
+  const tcx = Math.min(Number(tc), CV_TC_MAX);
+  const full = 0.08183*age + 0.39499*(male?1:0) + 0.02084*sbp + 0.69974*(dm?1:0) + 0.00212*tcx + 0.41916*(smoke?1:0);
   return 1 - Math.pow(0.964588, Math.exp(full - 7.04423));
 }
+/* เกิน 30% รามาเลิกรายงานเลขจริงตั้งแต่ 2021 เพราะโมเดลชนเพดาน (ค่าสุดขั้วได้ถึง 100%)
+   เราทำตาม — รายงานเป็น “> 30%” การจัดกลุ่มและการรักษายังเหมือนเดิม */
+const CV_CAP = 0.30;
+function riskPct(r){ return r > CV_CAP ? "> 30%" : (r*100).toFixed(1) + "%"; }
 function riskCat(r){
   if (r === null) return null;
   if (r < 0.10) return { k:"low",  th:"เสี่ยงต่ำ",     col:"#0e7c76" };
@@ -3072,11 +3081,11 @@ function ldlTarget(C, ldl){
   }
   if (C.ckd && C.age >= 50) return { t:100, why:"โรคไตเรื้อรัง — เป้าหมาย < 100" };
   if (ldl !== null && ldl >= 190) return { t:100, why:"LDL ≥ 190 — ควรได้ statin ทุกกรณี เป้าหมาย < 100 และลดลง ≥ 50%" };
-  if (C.risk !== null && C.risk >= 0.10) return { t:100, why:`Thai CV Risk ${(C.risk*100).toFixed(1)}% (≥ 10%) — เป้าหมาย < 100` };
+  if (C.risk !== null && C.risk >= 0.10) return { t:100, why:`Thai CV Risk ${riskPct(C.risk)} (≥ 10%) — เป้าหมาย < 100` };
   if (C.risk === null && C.age && (C.age < 35 || C.age > 70))
     return { t:190, why:"อายุนอกช่วงที่คำนวณความเสี่ยงได้ — ใช้เกณฑ์ LDL ≥ 190 เท่านั้น" };
   if (C.risk === null) return { t:190, why:"ยังคำนวณความเสี่ยงไม่ได้ (ต้องมีอายุ ความดัน คอเลสเตอรอลรวม)" };
-  return { t:190, why:`Thai CV Risk ${(C.risk*100).toFixed(1)}% (< 10%) — ปรับพฤติกรรม ยังไม่ต้องใช้ยาถ้า LDL < 190` };
+  return { t:190, why:`Thai CV Risk ${riskPct(C.risk)} (< 10%) — ปรับพฤติกรรม ยังไม่ต้องใช้ยาถ้า LDL < 190` };
 }
 
 const REF = [
@@ -3343,7 +3352,7 @@ function planFindings(v, sex, age, prev, C){
 
   /* ---------------- ไขมันในเลือด — แนวทาง RCPT 2567 + Thai CV Risk ---------------- */
   const LT = C.ldlTarget;   // เป้าหมาย LDL (ตั้งชื่อ LT กัน T() ที่เป็นฟังก์ชันข้อความ)
-  const riskTxt = C.risk !== null ? `Thai CV Risk 10 ปี ${(C.risk*100).toFixed(1)}% (${C.riskCat.th})` : "";
+  const riskTxt = C.risk !== null ? `Thai CV Risk 10 ปี ${riskPct(C.risk)} (${C.riskCat.th})` : "";
   if (tg !== null && tg >= 500){
     add({ w:WK.w2, sev:"urgent", title:"ไตรกลีเซอไรด์สูงมาก",
       detail:`TG ${tg} mg/dL — เสี่ยงตับอ่อนอักเสบเฉียบพลัน แนวทางแนะนำเริ่ม fibrate ร่วมกับงดแอลกอฮอล์และน้ำตาล`,
@@ -3382,7 +3391,7 @@ function planFindings(v, sex, age, prev, C){
       tests:["chol","tg","hdl","ldl"] });
   }
   if (C.risk !== null && C.risk >= 0.20 && !C.ascvd){
-    add({ w:WK.m3, sev:"act", title:`ความเสี่ยงโรคหัวใจและหลอดเลือด 10 ปี ${(C.risk*100).toFixed(1)}%`,
+    add({ w:WK.m3, sev:"act", title:`ความเสี่ยงโรคหัวใจและหลอดเลือด 10 ปี ${riskPct(C.risk)}`,
       detail:`${riskTxt} — ควบคุมปัจจัยเสี่ยงทุกด้าน (ความดัน ไขมัน น้ำตาล บุหรี่) และพิจารณายาตามแนวทาง`,
       patient: T("cvrisk_high","โอกาสเกิดโรคหัวใจและหลอดเลือดใน 10 ปีสูง ควรพบแพทย์เพื่อวางแผนลดความเสี่ยงทุกด้าน"),
       tests:["chol","tg","hdl","ldl","bp"] });
@@ -3760,7 +3769,7 @@ function recalc(){
   if (C.ascvd){
     out.push(`<div class="riskbox"><div><div class="pct" style="color:#b0416a">สูงมาก</div></div><div><div class="cat" style="color:#b0416a">เคยเป็นโรคหัวใจ/หลอดเลือดสมอง</div><div class="why">ป้องกันทุติยภูมิ — เป้าหมาย LDL ${C.ldlTarget ? "< " + C.ldlTarget.t : ""}</div></div></div>`);
   } else if (C.risk !== null){
-    out.push(`<div class="riskbox"><div><div class="pct" style="color:${C.riskCat.col}">${(C.risk*100).toFixed(1)}%</div></div>
+    out.push(`<div class="riskbox"><div><div class="pct" style="color:${C.riskCat.col}">${riskPct(C.risk)}</div></div>
       <div><div class="cat" style="color:${C.riskCat.col}">Thai CV Risk 10 ปี — ${C.riskCat.th}</div><div class="why">${esc(C.ldlTarget ? C.ldlTarget.why : "")}</div></div></div>`);
   } else {
     out.push(`<div class="riskbox"><div><div class="pct" style="color:#93a9ae">—</div></div><div><div class="cat" style="color:var(--soft)">Thai CV Risk 10 ปี</div><div class="why">ต้องมี อายุ 35–70 · ความดันตัวบน · คอเลสเตอรอลรวม</div></div></div>`);
@@ -4501,8 +4510,8 @@ function buildSheet(hn, p){
   if (C.ascvd){
     riskHtml = `<div class="risk2" style="--rc:#b0416a"><div class="rp">สูงมาก</div><div><div class="rt">ความเสี่ยงโรคหัวใจและหลอดเลือด</div><div class="rw">เคยเป็นโรคหัวใจ/หลอดเลือดสมองแล้ว — ต้องคุมไขมันเลวให้ต่ำกว่า ${C.ldlTarget.t} และคุมความดัน น้ำตาล งดบุหรี่อย่างเคร่งครัด</div></div></div>`;
   } else if (C.risk !== null){
-    const pct = (C.risk*100).toFixed(1);
-    riskHtml = `<div class="risk2" style="--rc:${C.riskCat.col}"><div class="rp">${pct}%</div><div><div class="rt">โอกาสเกิดโรคหัวใจและหลอดเลือดใน 10 ปี — ${C.riskCat.th}</div>
+    const pct = riskPct(C.risk);
+    riskHtml = `<div class="risk2" style="--rc:${C.riskCat.col}"><div class="rp">${pct}</div><div><div class="rt">โอกาสเกิดโรคหัวใจและหลอดเลือดใน 10 ปี — ${C.riskCat.th}</div>
       <div class="rw">คำนวณจากอายุ เพศ ความดัน คอเลสเตอรอล เบาหวาน และการสูบบุหรี่ (Thai CV Risk Score) · ${
         C.risk < 0.10 ? "ต่ำกว่า 10% ถือว่าเสี่ยงต่ำ — รักษาพฤติกรรมดี ๆ แบบนี้ต่อไป"
       : C.risk < 0.20 ? "10–20% ถือว่าปานกลาง — คุมความดัน ไขมัน น้ำตาล และเลิกบุหรี่จะลดความเสี่ยงได้มาก"
@@ -4723,7 +4732,7 @@ $("importFile").onchange = doImport;
 $("hn").addEventListener("change", loadHN);
 initStore().then(recalc);
 window.addEventListener("online", () => { flushOutbox().then(n => { if (n) flash(`กลับมาออนไลน์ — ส่งข้อมูลที่ค้าง ${n} รายการแล้ว`, "ok"); }); });
-window.__app = { REF, parsePaste, buildSheet, recalc, api, cloudSave, cloudGet, saveVisit, initStore, pdfName, printSheet, doPdf,
+window.__app = { REF, parsePaste, buildSheet, recalc, api, cloudSave, cloudGet, saveVisit, initStore, pdfName, printSheet, doPdf, thaiCVRisk, riskPct, buildCtx,
   get DB(){ return DB; }, set DB(v){ DB = v; }, get CFG(){ return CFG; }, set CFG(v){ CFG = v; saveCFG(); } };
 </script>
 </body></html>
