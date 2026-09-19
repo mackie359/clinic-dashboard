@@ -3119,7 +3119,7 @@ const REF = [
     st:(v,s)=>{ const hi = s==="M"?1.2:1.0; return band(v,hi,hi+0.3); } },
   { g:"ไต",     k:"egfr",  th:"อัตราการกรองของไต",  en:"eGFR",                u:"mL/min",dec:0, lower:false,
     lo:1,  hi:200,  ref:()=>"",
-    st:v => v>=45 ? "ok" : (v>=30 ? "watch" : "bad") },   // 3b เฝ้าระวัง · ระยะ 4 ขึ้นไป ควรรักษา
+    st:v => v>=60 ? "ok" : (v>=30 ? "watch" : "bad") },   // 3a–3b เฝ้าระวัง · ระยะ 4 ขึ้นไป ควรรักษา
 
   { g:"เกาต์",   k:"uric",  th:"กรดยูริก",           en:"Uric acid",           u:"mg/dL", dec:1, lower:true,
     lo:0.5,hi:25,   ref:s=>s==="M"?"≤ 7.0 (ชาย)":"≤ 6.0 (หญิง)",
@@ -3219,6 +3219,7 @@ const TXT_REG = [
   ["ldl_over_target","ไขมัน","LDL เกินเป้า — ใช้ {ldl} และ {target} ได้","ไขมันเลว {ldl} สูงกว่าเป้าหมายของท่าน (ต่ำกว่า {target}) ตามระดับความเสี่ยง ควรเริ่มยาลดไขมันร่วมกับปรับอาหาร"],
   ["tg_high","ไขมัน","TG 150–499","ไตรกลีเซอไรด์สูง ลดของหวาน น้ำหวาน เหล้าเบียร์ แล้วตรวจซ้ำ"],
   ["tg_vhigh","ไขมัน","TG ≥ 500","ไขมันไตรกลีเซอไรด์สูงมาก เสี่ยงตับอ่อนอักเสบ ต้องรีบรักษา"],
+  ["ckd_3a","ไต","eGFR 45–59 (ต้องตรวจซ้ำยืนยัน)","การกรองของไตต่ำกว่าเกณฑ์เล็กน้อย ยังสรุปไม่ได้ว่าเป็นโรคไตเรื้อรัง ต้องตรวจซ้ำอีกครั้ง งดยาแก้ปวดกลุ่มเสี่ยงและยาชุด ดื่มน้ำให้พอ"],
   ["ckd_3b","ไต","eGFR 30–44","ไตทำงานลดลง ต้องติดตามทุก 6 เดือน งดยาแก้ปวดกลุ่มเสี่ยงและยาชุด ดื่มน้ำให้พอ"],
   ["ckd_45","ไต","eGFR < 30","การทำงานของไตลดลงมาก ควรพบแพทย์เฉพาะทางโรคไต"],
   ["cr_rising","ไต","ครีอะตินินเพิ่ม > 0.3","ค่าไตเปลี่ยนแปลงเร็วกว่าที่ควร ต้องตรวจซ้ำและทบทวนยาที่ใช้อยู่"],
@@ -3408,6 +3409,11 @@ function planFindings(v, sex, age, prev, C){
       add({ w:WK.m6, sev:"watch", title:"การกรองของไตลดลง (โรคไตเรื้อรังระยะ 3b)",
         detail:`eGFR ${egfr} — ติดตาม 2–3 ครั้ง/ปี ตรวจโปรตีนในปัสสาวะ/UACR คุมความดัน < 130/80 หลีกเลี่ยง NSAIDs และยาชุด`,
         patient: T("ckd_3b","ไตทำงานลดลง ต้องติดตามทุก 6 เดือน งดยาแก้ปวดกลุ่มเสี่ยงและยาชุด ดื่มน้ำให้พอ"),
+        tests:["bun","cr","egfr","ua_prot"] });
+    } else if (egfr < 60){
+      add({ w:WK.m3, sev:"watch", title:"การกรองของไตลดลงเล็กน้อย (ระยะ 3a) — ต้องตรวจซ้ำยืนยัน",
+        detail:`eGFR ${egfr} — ค่าครั้งเดียววินิจฉัยโรคไตเรื้อรังไม่ได้ (KDIGO ต้องต่ำกว่า 60 ห่างกัน ≥ 3 เดือน) ให้ตรวจซ้ำพร้อม UACR ทบทวน NSAIDs สมุนไพร ยาชุด และภาวะขาดน้ำ`,
+        patient: T("ckd_3a","การกรองของไตต่ำกว่าเกณฑ์เล็กน้อย ยังสรุปไม่ได้ว่าเป็นโรคไตเรื้อรัง ต้องตรวจซ้ำอีกครั้ง งดยาแก้ปวดกลุ่มเสี่ยงและยาชุด ดื่มน้ำให้พอ"),
         tests:["bun","cr","egfr","ua_prot"] });
     }
   }
@@ -3606,7 +3612,7 @@ const ALIAS = [
   ["bun",   [/\bbun\b/i, /blood\s+urea\s+nitrogen/i, /ยูเรีย/]],
   ["cr",    [/\bcreatinine?\b/i, /\bcr\b/i, /ครีอะตินิน/, /ครีเอตินิน/]],
   ["uric",  [/\buric\s*acid\b/i, /\buric\b/i, /กรดยูริก/, /ยูริค/]],
-  ["hb",    [/\bhemoglobin\b/i, /\bhaemoglobin\b/i, /\bhb\b/i, /ฮีโมโกลบิน/]]
+  ["hb",    [/\bha?emoglobin\b(?!\s*a1)/i, /\bhgb\b/i, /\bhb\b(?!\s*[-\s]?a1)/i, /ฮีโมโกลบิน/]]
 ];
 
 /* ============================================================ */
@@ -3846,6 +3852,12 @@ function renderPlan(C){
 }
 
 /* ---------- ดึงค่าจากข้อความ ---------- */
+/* ค่าที่ยังว่างหลังอ่าน — ส่วนใหญ่แปลว่าใบนี้ไม่ได้ส่งตรวจ ไม่ใช่ตัวอ่านพลาด */
+function missingTxt(list){
+  if (!list || !list.length) return "";
+  const show = list.slice(0, 6).join(", ");
+  return ` · ไม่พบในใบนี้: ${show}${list.length > 6 ? ` และอีก ${list.length - 6} รายการ` : ""}`;
+}
 function parsePaste(){
   const raw = $("pasteBox").value;
   if (!raw.trim()){ flash("ยังไม่ได้วางข้อความ", "err"); return; }
@@ -3854,6 +3866,7 @@ function parsePaste(){
   let m = `ดึงได้ ${r.got} ค่า จาก ${REF.length} ค่า`;
   if (r.skipped) m += ` · ข้าม ${r.skipped} ค่าที่กรอกไว้แล้ว`;
   if (r.oob)     m += ` · ⚠ ${r.oob} ค่าอยู่นอกช่วงที่เป็นไปได้ (กรอบเหลือง) ตรวจทานด่วน`;
+  m += missingTxt(r.missing);
   $("parseInfo").textContent = m;
   flash(m + " — กรุณาตรวจทานทุกค่ากับ PDF ก่อนบันทึก", r.oob ? "err" : "info");
 }
@@ -3981,7 +3994,8 @@ function parseLines(lines, srcTag){
   let got = 0, skipped = 0, oob = 0;
   // ตัดช่วงปัสสาวะออกจากการหาเลข (กัน Glucose 1+ ไปเป็น FBS)
   const uaStart = lines.findIndex(l => /urin(?:e|alysis)|ปัสสาวะ/i.test(l));
-  const isUA = i => uaStart >= 0 && i >= uaStart && i < uaStart + 45 && !/hemoglobin|creatinine|fasting/i.test(lines[i]);
+  const isUA = i => uaStart >= 0 && i >= uaStart && i < uaStart + 45
+                    && !/ha?emoglobin|\bhgb\b|\bhb\b|creatinine|fasting/i.test(lines[i]);
   for (const [key, pats] of ALIAS){
     const el = $("f_"+key);
     if (el.value.trim()){ skipped++; continue; }
@@ -4013,8 +4027,9 @@ function parseLines(lines, srcTag){
     UAF.forEach(f => { if (ua[f.k] && !$(f.k).value.trim()){ $(f.k).value = ua[f.k]; got++; } });
     if (ua.ua_other && !$("ua_other").value.trim()) $("ua_other").value = ua.ua_other;
   }
+  const missing = REF.filter(r => !$("f_"+r.k).value.trim()).map(r => r.th);
   recalc();
-  return { got, skipped, oob };
+  return { got, skipped, oob, missing };
 }
 
 /* ---------- รับไฟล์ PDF ---------- */
@@ -4047,6 +4062,7 @@ async function importPdfFiles(files){
     if (r.skipped) m += ` · ข้าม ${r.skipped} ค่าที่กรอกไว้แล้ว`;
     if (r.oob) m += ` · ⚠ ${r.oob} ค่านอกช่วงที่เป็นไปได้ (กรอบเหลือง)`;
     if (H.labno) m += ` · Lab No. ${H.labno}`;
+    m += missingTxt(r.missing);
     $("dropInfo").textContent = m; $("parseInfo").textContent = "";
     flash(m + " — ตรวจทานทุกค่ากับ PDF ก่อนบันทึก (ปีเกิดเป็นค่าประมาณ ถ้ามีประวัติ HN จะใช้ของเดิม)", r.oob ? "err" : "info");
   }catch(e){
