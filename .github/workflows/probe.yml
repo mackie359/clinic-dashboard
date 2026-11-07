@@ -1,0 +1,9 @@
+name: probe-mcs
+on: push
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -sS -m 30 -o /dev/null -w "login page: %{http_code} %{time_total}s ip=%{remote_ip}\n" https://mcscloud.co/index.php/auth/login || echo "FAILED"
+          curl -sS -m 30 -o /dev/null -w "home: %{http_code}\n" https://mcscloud.co/ || echo "FAILED2"
